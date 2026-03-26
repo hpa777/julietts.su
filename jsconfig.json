@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+      "baseUrl": ".",
+      "paths": {
+        "@/*": [
+          "src/js/*"
+        ],
+        "@Components/*": [
+          "src/js/components/*"
+        ]
+      }
+    },
+    "exclude": [
+      "node_modules",
+      "assets",
+      "core",
+      "manager",
+      "connectors"
+    ]
+  }

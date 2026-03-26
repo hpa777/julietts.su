@@ -1,0 +1,17 @@
+[Mysql]
+host = host.docker.internal
+user = ..
+password = ..
+database = ..
+
+[Site]
+url = 
+divid = order
+
+
+[File]
+name = sc
+path = /usr/src/app/images/
+
+[Webdriver]
+command_executor = http://selenium:4444/wd/hub

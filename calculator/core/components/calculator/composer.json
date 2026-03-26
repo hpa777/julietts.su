@@ -1,0 +1,11 @@
+{
+    "name": "hpa/jw_exchange",
+    "require": {
+        "phpoffice/phpspreadsheet": "^1.30"
+    }    ,
+    "autoload": {
+        "psr-4": {
+            "Juliettes\\" : "src/Juliettes"
+        }
+    } 
+}

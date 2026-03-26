@@ -1,0 +1,224 @@
+<script setup>
+import {
+  ref,
+  computed,
+  watch
+} from 'vue'
+
+import {
+  getChains,
+  getPendants,
+  getPendantsByRoot,
+  getLexicon,
+  sendMail,
+  getStoneTypes
+} from '../services/ConstructorApi'
+
+import WorkTable from './WorkTable.vue'
+import Tabs from './Tabs.vue'
+import Step from './Step.vue'
+import ItemsList from './ItemsList.vue'
+import InputList from './InputList.vue'
+import ButtonsList from './ButtonsList.vue'
+import OrderForm from './OrderForm.vue'
+import { checkIncludePoint } from './tools'
+
+const baseUrl = process.env.MIX_BASE_URL
+
+// Refs
+const finish = ref(false)
+const submitPressed = ref(0)
+const currentStep = ref(0)
+const selectItemKey = ref()
+const items = ref([])
+const chain = ref({ lenghts: [] })
+
+const workTableComponent = ref(null)
+
+const currentMaterial = ref(0)
+const selectedChainIdx = ref(0)
+
+const lexicon = ref({})
+const chains = ref([])
+const pendants = ref({})
+const stoneTypes = ref([])
+const possibleStoneTypes = ref([])
+let currentStoneType = undefined
+
+// --- Watch Items ---
+let itemsLength = 0
+watch(items, (newItems) => {
+  if (newItems.length === 0 && itemsLength === 1) {
+    currentStep.value = 1
+  }
+  itemsLength = newItems.length
+
+  const uniqueStoneTypes = new Set()
+  newItems.forEach((el) => {
+    el.stone_types_list?.forEach((stl) => uniqueStoneTypes.add(stl.stonetype))
+  })
+  possibleStoneTypes.value = [...uniqueStoneTypes]
+})
+
+// --- Init ---
+getLexicon().then(res => lexicon.value = res.data).catch(console.warn)
+getChains()
+  .then(({ data }) => {
+    chains.value = data.items
+    chains.value.some((group, i) => {
+      const defIdx = group.items.findIndex(v => v.as_default === 1)
+      if (defIdx !== -1) {
+        setChain(group.items[defIdx], i)
+        selectedChainIdx.value = defIdx
+        return true
+      }
+      return false
+    })
+  })
+  .catch(console.warn)
+
+getPendants().then(res => pendants.value = res.data.items).catch(console.warn)
+getStoneTypes().then(res => stoneTypes.value = res.data.items).catch(console.warn)
+
+// --- Computed ---
+const getPrice = (val) => !isNaN(val) ? parseInt(val, 10) : 0
+
+const cost = computed(() => {
+  const chainPrice = getPrice(chain.value?.price)
+  const itemsPrice = items.value.reduce((sum, el) => {
+    let price = getPrice(el.stonePrice || el.price)
+    if (el.text) price += getPrice(lexicon.value.cost_engraving)
+    return sum + price
+  }, 0)
+  return chainPrice + itemsPrice
+})
+
+// --- Actions ---
+const setChain = (item, tabIdx) => {
+  currentMaterial.value = tabIdx
+  if (!item) return
+  chain.value = { ...item, tabname: chains.value[tabIdx]?.pagetitle }
+}
+
+const setItemStoneType = (item) => {
+  if (!item.stone_types_list || !currentStoneType) return
+  const st = item.stone_types_list.find(stl => stl.stonetype === currentStoneType.id)
+  if (st) {
+    item.stonePrice = st.price
+    item.stoneName = currentStoneType.longtitle
+  }
+}
+
+const changeStoneType = (stoneType) => {
+  currentStoneType = stoneType
+  items.value.forEach(setItemStoneType)
+}
+
+const clearNewFlag = () => {
+  const newItem = items.value.find(el => el.isNew)
+  if (newItem) newItem.isNew = false
+}
+
+const selectItem = (key) => {
+  if (items.value[key]) selectItemKey.value = key
+}
+
+const addItem = (item, tabIdx) => {
+  if (items.value.length >= lexicon.value.max_items) return
+  clearNewFlag()
+
+  const newItem = {
+    ...item,
+    isNew: true,
+    text: '',
+    typename: '',
+    colorname: '',
+    placename: '',
+    tabname: pendants.value?.[currentMaterial.value]?.items?.[tabIdx]?.pagetitle || '',
+    stonePrice: 0,
+    stoneName: ''
+  }
+
+  setItemStoneType(newItem)
+
+  const hasLastTip = items.value.at(-1)?.is_tip !== undefined
+
+  if (newItem.is_tip === 1 && hasLastTip) return
+  if (newItem.is_tip === 1) {
+    newItem.is_tip = 2
+    items.value.push(newItem)
+  } else {
+    if (hasLastTip) {
+      items.value.splice(items.value.length - 1, 0, newItem)
+    } else {
+      items.value.push(newItem)
+    }
+  }
+
+  selectItemKey.value = undefined
+
+  getPendantsByRoot(item.id)
+    .then((res) => (newItem.items = res.data.items))
+    .catch(console.warn)
+}
+
+const dropItem = (e, tabIdx) => {
+  if (checkIncludePoint(workTableComponent.value.workTable, e.clientX, e.clientY)) {
+    addItem(e.item, tabIdx)
+  }
+}
+
+const changeItems = (key, k = key + 1) => {
+  const temp = items.value[key]
+  items.value[key] = items.value[k]
+  items.value[k] = temp
+
+  if (selectItemKey.value === key) selectItemKey.value++
+  else if (selectItemKey.value === key + 1) selectItemKey.value--
+}
+
+const removeItem = (key) => {
+  if (key === selectItemKey.value) {
+    selectItemKey.value = undefined
+  } else if (key < selectItemKey.value) {
+    selectItemKey.value--
+  }
+  items.value.splice(key, 1)
+}
+
+const handleDrop = (event) => {
+  const item = JSON.parse(event.dataTransfer.getData('application/json'))
+  if (currentStep.value === 0) {
+    chain.value = item
+  } else if (currentStep.value === 1) {
+    addItem(item)
+  }
+}
+
+const submit = (contact) => {
+  finish.value = true
+  sendMail({
+    contact,
+    chain: {
+      id: chain.value.id,
+      tabname: chain.value.tabname,
+      name: chain.value.pagetitle,
+      length: chain.value.length,
+      price: chain.value.price
+    },
+    items: items.value.map((el) => ({
+      id: el.id,
+      tabname: el.tabname,
+      name: el.pagetitle,
+      type: el.typename,
+      color: el.colorname,
+      place: el.placename,
+      price: el.price,
+      text: el.text,
+      stonePrice: el.stonePrice,
+      stoneName: el.stoneName
+    })),
+    cost: cost.value
+  }).then(console.log).catch(console.warn)
+}
+</script>

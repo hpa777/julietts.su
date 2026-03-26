@@ -1,0 +1,23 @@
+services:
+  
+  selenium:
+    image: selenium/standalone-chrome
+    container_name: selenium
+    ports:
+      #- "4444:4444"
+      - "4444"
+    restart: always
+  app: 
+    build: .
+    container_name: image_creator
+    #command: python image_creator.py
+    command: sleep infinity
+    volumes:
+      - ".:/usr/src/app"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DB_HOST=host.docker.internal
+    depends_on:
+      - "selenium"
+    restart: always     
