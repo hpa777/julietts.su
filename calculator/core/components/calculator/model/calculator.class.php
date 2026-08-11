@@ -1,10 +1,11 @@
 <?php
 
-use Juliettes\Sender\CrmSender;
 use Juliettes\Sender\EmailSender;
 use Juliettes\Sender\SmsSender;
+use Juliettes\Sender\JulCrmSender;
 
-require MODX_CORE_PATH . 'components/calculator/vendor/autoload.php';
+//require MODX_CORE_PATH . 'components/calculator/vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 
 class calculator
 {
@@ -19,7 +20,8 @@ class calculator
     function __construct(modX &$modx, array $config = [])
     {
         $this->modx =& $modx;
-        $corePath = MODX_CORE_PATH . 'components/calculator/';
+        //$corePath = MODX_CORE_PATH . 'components/calculator/';
+        $corePath = dirname(__DIR__) . '/';
         $assetsUrl = MODX_ASSETS_URL . 'components/calculator/';
 
         $this->config = array_merge([
@@ -63,19 +65,21 @@ class calculator
     }
 
     public function sendMessage() {
-        $pdoTools = $this->modx->getService('pdoTools');        
-        $crmSender = new CrmSender($this->modx);
+        $pdoTools = $this->modx->getService('pdoTools');                
         $smsSender = new SmsSender($this->modx);
-        $emailSender = new EmailSender($this->modx); 
+        $emailSender = new EmailSender($this->modx);
+        $julCrmSender = new JulCrmSender($this->modx); 
         foreach($this->modx->getCollection('calculatorOder', ['status' => 1]) as $order) {
-            $options = $this->prepareEmailOptions( $order->toArray());
-            $crmSender->send($options, '');
-            $msg = $pdoTools->getChunk('tpl.calculator.sms', $options);
+            $options = $this->prepareEmailOptions( $order->toArray());                        
+            $msg = $pdoTools->getChunk('tpl.calculator.sms', $options);            
             $smsSender->send($options, $msg);
+
             $msg = $pdoTools->getChunk('tpl.calculator.email', $options);
             $emailSender->send($options, $msg);
+
             $order->set('status', 2);
             $order->save();
+            $julCrmSender->send($order->toArray(), '');
         }
     }
 
