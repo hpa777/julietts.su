@@ -53,6 +53,13 @@ class calculator
             'whatsapp' => MODX_ASSETS_PATH . 'mail_img/whatsapp.png',            
             'order_image' => $this->resizeImage($order['image'])
         ];
+        foreach ($order['items'] as &$item) {
+            $item['category'] = $this->modx->runSnippet('pdoField', [
+                'id' => $item['id'],
+                'topLevel' => 2,
+                'field' => 'pagetitle'
+            ]);
+        }
         return array_merge($options, $order);
     }
 
@@ -72,7 +79,7 @@ class calculator
         foreach($this->modx->getCollection('calculatorOder', ['status' => 1]) as $order) {
             $options = $this->prepareEmailOptions( $order->toArray());                        
             $msg = $pdoTools->getChunk('tpl.calculator.sms', $options);            
-            $smsSender->send($options, $msg);
+            //$smsSender->send($options, $msg);
 
             $msg = $pdoTools->getChunk('tpl.calculator.email', $options);
             $emailSender->send($options, $msg);

@@ -24,22 +24,38 @@
                 </ul>
             </div>
             
+            {set $bracelet = 0}
+            {set $stoneprice = 0}
+            {set $engraving = 0}
+            {set $category = ''}
+            {set $categoryChanged = 0}
+            {set $itemCount = 0}                    
+            {foreach $items as $it}                                        
+                {set $bracelet = $bracelet + $it.price}
+                {set $itemCount = $itemCount + 1}                        
+                {if $it.stoneName?}
+                    {set $stonename = $it.stoneName}
+                    {set $stoneprice = $stoneprice+$it.stonePrice-$it.price}                                 
+                {/if}
+                {if $it.text?}
+                    {set $engraving = $engraving+$cost_engraving}
+                {/if}
+                {if $category?}
+                    {if $category != $it.category} 
+                        {set $categoryChanged = 1}
+                    {/if}
+                {else}
+                    {set $category = $it.category}
+                {/if}    
+            {/foreach} 
             <div class="section" style="margin: 20px 0;">
                 <h3 class="block-title" style="font-weight: 700;font-size: 1.19rem;text-transform: uppercase;margin-bottom: 1.3rem;">СОСТАВ ЗАКАЗА:</h3>
+                {if !$categoryChanged}
+                <p>Металл {if $itemCount > 1}кулонов{else}кулона{/if}: {$category}</p>
+                {/if}
                 <ol class="list" style="padding: 0;list-style-position: inside;">
-                    {set $bracelet = 0}
-                    {set $stoneprice = 0}
-                    {set $engraving = 0}                    
                     {foreach $items as $it}                        
-                        <li>{$it.tabname} {$it.name}, {$chain.tabname}</li>
-                        {set $bracelet = $bracelet + $it.price}                        
-                        {if $it.stoneName?}
-                            {set $stonename = $it.stoneName}
-                            {set $stoneprice = $stoneprice+$it.stonePrice-$it.price}                                 
-                        {/if}
-                        {if $it.text?}
-                            {set $engraving = $engraving+$cost_engraving}
-                        {/if}                        
+                    <li>{$it.tabname} {$it.name}{if $categoryChanged}, {$it.category}{/if}</li>                        
                     {/foreach}       
                 </ol>               
             </div>
